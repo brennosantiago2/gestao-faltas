@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestão de Faltas</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; max-width: 900px; margin: auto; background-color: #f4f6f9; }
+        
+        /* Cabeçalho Moderno */
+        .header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .logo-area { display: flex; align-items: center; gap: 15px; }
+        .logo-img { width: 121px; height: auto; object-fit: contain; }
+        .empresa-nome { margin: 0; color: #2c3e50; font-size: 1.4em; }
+        
+        .btn-moderno { background-color: #2c3e50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.8em; transition: 0.3s; }
+        .btn-moderno:hover { background-color: #1a252f; }
+        
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .filtros-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin-bottom: 15px;}
+        
+        input, select, button { padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; width: 100%;}
+        button { background-color: #3498db; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s;}
+        button:hover { background-color: #2980b9; }
+        
+        /* Tabela Compacta */
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: #555; }
+        .input-obs { width: 150px; padding: 4px; font-size: 0.9em; }
+        .btn-ok { width: auto; padding: 4px 10px; background-color: #28a745; font-size: 0.8em;}
+        
+        .paginacao { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+        .btn-pag { width: auto; background-color: #6c757d; }
+
+        #mensagemBoasVindas {color: #666; font-size: 0.75em; margin: 5px 0 0 0; font-weight: 500;}
+
+        .btn-delete {
+            width: auto !important; /* Força o botão a não ocupar 100% */
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 5px;
+            font-size: 0.8em;
+        }
+
+        .btn-delete:hover {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo-area">
+            <img src="logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'">
+            <div>
+                <h1 class="empresa-nome">Santiago Estruturas Metálicas</h1>
+                <p id="mensagemBoasVindas"></p>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <a href="funcionarios.html" class="btn-moderno">+ Gerenciar Funcionários</a>
+            <button onclick="sairSistema()" style="background-color: #e74c3c; color: white; padding: 10px 15px; border: none; border-radius: 6px; font-size: 0.8em; font-weight: bold; cursor: pointer; width: auto; margin: 0;">Sair</button>
+        </div>
+    </div>
+
+    <div class="card" style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; align-items: center;">
+        <select id="novoFuncionario"><option value="">Selecione quem faltou...</option></select>
+        <input type="date" id="novaData">
+        <button style="height: 100%;" onclick="registrarFalta()">Registrar Nova Falta</button>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-top: 0; color: #333;">Relatório de Faltas</h3>
+        
+        <div class="filtros-grid">
+            <div>
+                <label style="font-size: 0.8em; color: #666;">Filtrar Funcionário:</label>
+                <select id="filtroFuncionario" onchange="resetarBusca()">
+                    <option value="">Todos os funcionários</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size: 0.8em; color: #666;">Mês/Ano (Ex: 04/2026):</label>
+                <input type="month" id="filtroMes" onchange="resetarBusca()">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="carregarFaltas()">Buscar</button>
+                <button style="background-color: #e67e22;" onclick="exportarTXT()">Baixar Relatório</button>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Função</th>
+                    <th>Data</th>
+                    <th>Dia</th>
+                    <th>Observação / Justificativa</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="corpoTabela"></tbody>
+        </table>
+
+        <div class="paginacao">
+            <button class="btn-pag" onclick="mudarPagina(-1)">← Anterior</button>
+            <span id="infoPagina" style="font-size: 0.9em; font-weight: bold; color: #555;">Página 1</span>
+            <button class="btn-pag" onclick="mudarPagina(1)">Próxima →</button>
+        </div>
+    </div>
+
+    <script>
+        async function checarSessao() {
+            const res = await fetch('/verificar-sessao');
+            if (!res.ok) window.location.href = 'login.html';
+            else iniciarSistema(); // Só inicia se estiver logado
+        }
+
+        async function sairSistema() {
+            await fetch('/logout', { method: 'POST' });
+            window.location.href = 'login.html';
+        }
+
+        checarSessao(); // Substitua o iniciarSistema() do final do código por isso
+
+        const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+        let paginaAtual = 1;
+
+        function exibirDataBoasVindas() {
+            const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            const diasSemanaNomes = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
+            const hoje = new Date();
+            const diaSemana = diasSemanaNomes[hoje.getDay()];
+            const dia = hoje.getDate();
+            const mes = meses[hoje.getMonth()];
+            const ano = hoje.getFullYear();
+
+            const frase = `Bem vindo! Hoje é ${diaSemana}, dia ${dia} de ${mes} de ${ano}.`;
+            document.getElementById('mensagemBoasVindas').innerText = frase;
+        }
+
+        async function iniciarSistema() {
+            exibirDataBoasVindas(); // Chama a função da data logo que o sistema inicia
+
+            const res = await fetch('/funcionarios');
+            const funcs = await res.json();
+            
+            const selNovo = document.getElementById('novoFuncionario');
+            const selFiltro = document.getElementById('filtroFuncionario');
+            
+            // A CORREÇÃO ESTÁ AQUI: Limpa as listas antes de preencher para evitar duplicações
+            selNovo.innerHTML = '<option value="">Selecione quem faltou...</option>';
+            selFiltro.innerHTML = '<option value="">Todos os funcionários</option>';
+            
+            funcs.forEach(f => {
+                const opt = `<option value="${f.id}">${f.nome} (${f.funcao})</option>`;
+                selNovo.innerHTML += opt;
+                selFiltro.innerHTML += opt;
+            });
+
+            carregarFaltas();
+        }
+
+        async function registrarFalta() {
+            const id = document.getElementById('novoFuncionario').value;
+            const dataInp = document.getElementById('novaData').value;
+            if (!id || !dataInp) return alert('Selecione o funcionário e a data!');
+
+            const dataObj = new Date(dataInp + 'T00:00:00');
+            const diaSemana = diasSemana[dataObj.getDay()];
+            const dataBr = dataInp.split('-').reverse().join('/');
+
+            await fetch('/faltas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ funcionario_id: id, data: dataBr, dia_semana: diaSemana })
+            });
+            
+            // Limpa campos e recarrega
+            document.getElementById('novoFuncionario').value = '';
+            document.getElementById('novaData').value = '';
+            resetarBusca();
+        }
+
+        function resetarBusca() {
+            paginaAtual = 1;
+            carregarFaltas();
+        }
+
+        function mudarPagina(direcao) {
+            if (paginaAtual + direcao < 1) return;
+            paginaAtual += direcao;
+            carregarFaltas();
+        }
+
+        async function carregarFaltas() {
+            const funcId = document.getElementById('filtroFuncionario').value;
+            const mesBruto = document.getElementById('filtroMes').value; // Formato vem YYYY-MM
+            
+            let url = `/faltas?pagina=${paginaAtual}`;
+            if (funcId) url += `&funcionario_id=${funcId}`;
+            if (mesBruto) {
+                // Transforma "2026-04" em "04/2026" para o banco entender
+                const partes = mesBruto.split('-');
+                url += `&mes=${partes[1]}/${partes[0]}`;
+            }
+
+            const res = await fetch(url);
+            const faltas = await res.json();
+            
+            const tbody = document.getElementById('corpoTabela');
+            tbody.innerHTML = '';
+            
+            if(faltas.length === 0 && paginaAtual > 1) {
+                paginaAtual--; // Volta se não houver registros na próxima página
+                return;
+            }
+
+            faltas.forEach(f => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${f.nome}</strong></td>
+                        <td>${f.funcao}</td>
+                        <td>${f.data}</td>
+                        <td>${f.dia_semana}</td>
+                        <td><input type="text" class="input-obs" id="obs-${f.id}" value="${f.observacao}" placeholder="Ex: Atestado"></td>
+                        <td>
+                            <button class="btn-ok" onclick="salvarObs(${f.id})">Salvar</button>
+                            <button class="btn-delete" onclick="deletarFalta(${f.id})">x</button>
+                        </td>
+                        
+                    </tr>
+                `;
+            });
+
+            document.getElementById('infoPagina').innerText = `Página ${paginaAtual}`;
+        }
+
+        async function salvarObs(id) {
+            const observacao = document.getElementById(`obs-${id}`).value;
+            await fetch(`/faltas/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ observacao })
+            });
+            alert('Salvo!');
+        }
+
+        async function deletarFalta(id) {
+            // É sempre boa prática perguntar antes de deletar algo permanente
+            if (!confirm('Tem certeza que deseja excluir este registro de falta?')) return;
+
+            const res = await fetch(`/faltas/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                carregarFaltas(); // Atualiza a lista automaticamente
+            } else {
+                alert('Erro ao excluir a falta.');
+            }
+        }
+        function exportarTXT() {
+            const funcId = document.getElementById('filtroFuncionario').value;
+            const mesBruto = document.getElementById('filtroMes').value;
+            
+            let url = `/exportar?`;
+            if (funcId) url += `funcionario_id=${funcId}&`;
+            if (mesBruto) {
+                const partes = mesBruto.split('-');
+                url += `mes=${partes[1]}/${partes[0]}`;
+            }
+
+            // Isso faz o navegador "abrir" o link, o que dispara o download do arquivo no Backend
+            window.open(url, '_blank');
+        }
+
+        checarSessao();
+    </script>
+</body>
+</html>
